@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_DIR="${HOME}/.local/state/gcloud-auth-proxy"
+SOCKET_PATH="${GCLOUD_AUTH_PROXY_SOCKET:-${STATE_DIR}/proxy.sock}"
+LABEL="com.sfriedenberg.gcloud-auth-proxy"
+# shellcheck disable=SC2034  # used by service-install/service-uninstall (not yet implemented)
+PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+
+usage() {
+	cat <<-EOF
+	Usage: gcloud-auth-proxy <command>
+
+	Commands:
+	  serve              Run the HTTP proxy (foreground)
+	  service-install    Install and start the launchd service
+	  service-uninstall  Stop and remove the launchd service
+	  token              Fetch a token from the running proxy
+
+	Environment:
+	  GCLOUD_AUTH_PROXY_SOCKET  Socket path (default: ~/.local/state/gcloud-auth-proxy/proxy.sock)
+	EOF
+}
+
+handle_request() {
+	local request
+	read -r request
+
+	local path
+	path=$(echo "$request" | cut -d' ' -f2)
+
+	case "$path" in
+	/token | /token/)
+		local token
+		if token=$(gcloud auth print-access-token 2>&1); then
+			echo -ne "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${#token}\r\n\r\n${token}"
+		else
+			local error="Failed to get access token: $token"
+			echo -ne "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: ${#error}\r\n\r\n${error}"
+		fi
+		;;
+	/health | /health/)
+		local response="OK"
+		echo -ne "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${#response}\r\n\r\n${response}"
+		;;
+	*)
+		local error="Not Found"
+		echo -ne "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: ${#error}\r\n\r\n${error}"
+		;;
+	esac
+}
+
+export -f handle_request
+
+cmd_serve() {
+	if ! command -v socat >/dev/null 2>&1; then
+		echo "Error: socat is required but not installed" >&2
+		exit 1
+	fi
+
+	if ! command -v gcloud >/dev/null 2>&1; then
+		echo "Error: gcloud is required but not installed" >&2
+		exit 1
+	fi
+
+	mkdir -p "$STATE_DIR"
+
+	# When not on a TTY (running under launchd), redirect to log files
+	if [[ ! -t 2 ]]; then
+		exec >"${STATE_DIR}/stdout.log" 2>"${STATE_DIR}/stderr.log"
+	fi
+
+	rm -f "$SOCKET_PATH"
+	echo "gcloud-auth-proxy listening on $SOCKET_PATH (PID: $$)" >&2
+	exec socat UNIX-LISTEN:"$SOCKET_PATH",fork SYSTEM:'bash -c handle_request'
+}
+
+cmd_service_install() {
+	echo "Not implemented yet" >&2
+	exit 1
+}
+
+cmd_service_uninstall() {
+	echo "Not implemented yet" >&2
+	exit 1
+}
+
+cmd_token() {
+	echo "Not implemented yet" >&2
+	exit 1
+}
+
+case "${1:-}" in
+	serve)             shift; cmd_serve "$@" ;;
+	service-install)   shift; cmd_service_install "$@" ;;
+	service-uninstall) shift; cmd_service_uninstall "$@" ;;
+	token)             shift; cmd_token "$@" ;;
+	-h|--help|"")      usage ;;
+	*)                  echo "Unknown command: $1" >&2; usage >&2; exit 1 ;;
+esac
