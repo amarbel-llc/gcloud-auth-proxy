@@ -131,8 +131,25 @@ cmd_service_uninstall() {
 }
 
 cmd_token() {
-	echo "Not implemented yet" >&2
-	exit 1
+	if [[ ! -S "$SOCKET_PATH" ]]; then
+		echo "Error: proxy socket not found at $SOCKET_PATH" >&2
+		echo "Is the service running? Try: gcloud-auth-proxy service-install" >&2
+		exit 1
+	fi
+
+	local token
+	token=$(curl -s --unix-socket "$SOCKET_PATH" http://localhost/token)
+
+	if [[ -z "$token" ]] || [[ "$token" == *"Error"* ]]; then
+		echo "Error: failed to get access token from proxy" >&2
+		exit 1
+	fi
+
+	if [[ "${1:-}" == "--export" ]]; then
+		echo "export CLOUDSDK_AUTH_ACCESS_TOKEN='${token}'"
+	else
+		echo "$token"
+	fi
 }
 
 case "${1:-}" in
