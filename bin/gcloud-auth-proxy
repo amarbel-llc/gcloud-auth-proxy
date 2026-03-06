@@ -115,8 +115,19 @@ cmd_service_install() {
 }
 
 cmd_service_uninstall() {
-	echo "Not implemented yet" >&2
-	exit 1
+	if launchctl print "gui/$(id -u)/${LABEL}" &>/dev/null; then
+		launchctl bootout "gui/$(id -u)/${LABEL}"
+		echo "Service stopped." >&2
+	else
+		echo "Service not loaded." >&2
+	fi
+
+	if [[ -f "$PLIST_PATH" ]]; then
+		rm "$PLIST_PATH"
+		echo "Plist removed: $PLIST_PATH" >&2
+	else
+		echo "No plist found at: $PLIST_PATH" >&2
+	fi
 }
 
 cmd_token() {
