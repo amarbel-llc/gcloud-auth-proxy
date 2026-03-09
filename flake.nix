@@ -3,11 +3,11 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    batman.url = "github:amarbel-llc/batman";
+    purse-first.url = "github:amarbel-llc/purse-first";
   };
 
   outputs =
-    { nixpkgs, batman, ... }:
+    { nixpkgs, purse-first, ... }:
     let
       systems = [
         "x86_64-linux"
@@ -40,7 +40,7 @@
               pkgs.gum
               pkgs.curl
               pkgs.socat
-              batman.packages.${system}.default
+              purse-first.packages.${system}.batman
             ];
           };
         }
