@@ -1,3 +1,3 @@
 
 - [ ] Push to a remote
-- [ ] Add BATS integration tests
+- [x] Add BATS integration tests
