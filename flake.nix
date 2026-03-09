@@ -3,10 +3,11 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    batman.url = "github:amarbel-llc/batman";
   };
 
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, batman, ... }:
     let
       systems = [
         "x86_64-linux"
@@ -14,19 +15,35 @@
         "x86_64-darwin"
         "aarch64-linux"
       ];
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system} system);
     in
     {
-      packages = forAllSystems (pkgs: {
-        default = pkgs.writeShellApplication {
-          name = "gcloud-auth-proxy";
-          runtimeInputs = with pkgs; [
-            socat
-            curl
-            google-cloud-sdk
-          ];
-          text = builtins.readFile ./bin/gcloud-auth-proxy;
-        };
-      });
+      packages = forAllSystems (
+        pkgs: _system: {
+          default = pkgs.writeShellApplication {
+            name = "gcloud-auth-proxy";
+            runtimeInputs = with pkgs; [
+              socat
+              curl
+              google-cloud-sdk
+            ];
+            text = builtins.readFile ./bin/gcloud-auth-proxy;
+          };
+        }
+      );
+
+      devShells = forAllSystems (
+        pkgs: system: {
+          default = pkgs.mkShell {
+            packages = [
+              pkgs.just
+              pkgs.gum
+              pkgs.curl
+              pkgs.socat
+              batman.packages.${system}.default
+            ];
+          };
+        }
+      );
     };
 }
