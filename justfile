@@ -10,4 +10,4 @@ build-nix:
 test: test-bats
 
 test-bats: build-nix
-    just zz-tests_bats/test --bin-dir {{dir_build}}/bin
+    just zz-tests_bats/test --bin-dir {{justfile_directory()}}/{{dir_build}}/bin --allow-unix-sockets

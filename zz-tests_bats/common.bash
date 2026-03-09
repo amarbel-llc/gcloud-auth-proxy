@@ -20,10 +20,27 @@ exit 1
 SCRIPT
   chmod +x "$fake_bin/gcloud"
   export PATH="$fake_bin:$PATH"
+
+  # The Nix-wrapped binary prepends the real google-cloud-sdk to PATH,
+  # shadowing the fake script above. Export a gcloud function so that socat's
+  # bash subprocesses (bash -c handle_request) pick it up via the environment
+  # instead of PATH lookup.
+  gcloud() {
+    if [[ "${1:-}" == "auth" && "${2:-}" == "print-access-token" ]]; then
+      echo "fake-gcloud-token-for-testing"
+      return 0
+    fi
+    echo "fake gcloud: unknown command: $*" >&2
+    return 1
+  }
+  export -f gcloud
 }
 
 start_proxy() {
-  export GCLOUD_AUTH_PROXY_SOCKET="$BATS_TEST_TMPDIR/proxy.sock"
+  # macOS limits Unix socket paths to 104 characters. BATS_TEST_TMPDIR can
+  # exceed that, so place the socket under /tmp with a short name.
+  GCLOUD_AUTH_PROXY_SOCKET=$(mktemp -u /tmp/gap-test.XXXXXX.sock)
+  export GCLOUD_AUTH_PROXY_SOCKET
   gcloud-auth-proxy serve &
   PROXY_PID=$!
 
@@ -47,4 +64,5 @@ stop_proxy() {
     kill "$PROXY_PID" 2>/dev/null || true
     wait "$PROXY_PID" 2>/dev/null || true
   fi
+  rm -f "${GCLOUD_AUTH_PROXY_SOCKET:-}"
 }
