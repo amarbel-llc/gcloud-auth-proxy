@@ -16,7 +16,7 @@ usage() {
 	  service-uninstall  Stop and remove the launchd service
 	  token              Fetch a token from the running proxy
 	  setup              Generate SSH config for socket forwarding
-	  setup-remote       Configure a remote host to use forwarded tokens
+	  setup-remote       Configure a host to use forwarded tokens (local if no host given)
 
 	Environment:
 	  GCLOUD_AUTH_PROXY_SOCKET  Socket path (default: ~/.local/state/gcloud-auth-proxy/proxy.sock)
@@ -172,17 +172,8 @@ cmd_setup() {
 	echo "  Include ~/.config/ssh/config-gcloud-auth-proxy" >&2
 }
 
-cmd_setup_remote() {
-	local host="${1:-}"
-
-	if [[ -z "$host" ]]; then
-		echo "Usage: gcloud-auth-proxy setup-remote <ssh-host>" >&2
-		exit 1
-	fi
-
-	# The heredoc uses <<'REMOTE_SCRIPT' (single-quoted delimiter) to prevent
-	# local variable expansion. All $ references are evaluated on the remote.
-	ssh "$host" bash <<-'REMOTE_SCRIPT'
+setup_remote_script() {
+	cat <<-'REMOTE_SCRIPT'
 	set -euo pipefail
 
 	SOCKET_PATH="/tmp/gcloud-auth-proxy.sock"
@@ -231,8 +222,18 @@ HELPER
 	echo "  Credential helper: $CREDENTIAL_HELPER_PATH" >&2
 	echo "  Reload your shell or run: source ~/.bashrc" >&2
 	REMOTE_SCRIPT
+}
 
-	echo "Remote host '$host' configured." >&2
+cmd_setup_remote() {
+	local host="${1:-}"
+
+	if [[ -n "$host" ]]; then
+		setup_remote_script | ssh "$host" bash
+		echo "Remote host '$host' configured." >&2
+	else
+		setup_remote_script | bash
+		echo "Local host configured." >&2
+	fi
 }
 
 case "${1:-}" in

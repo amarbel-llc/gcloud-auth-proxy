@@ -2,6 +2,9 @@ bats_load_library bats-support
 bats_load_library bats-assert
 bats_load_library bats-assert-additions
 bats_load_library bats-island
+bats_load_library bats-emo
+
+require_bin GCLOUD_AUTH_PROXY_BIN gcloud-auth-proxy
 
 FAKE_TOKEN="fake-gcloud-token-for-testing"
 export FAKE_TOKEN
